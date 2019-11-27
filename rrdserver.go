@@ -42,6 +42,9 @@ type QueryRequest struct {
 	Interval   string `json:"interval"`
 	IntervalMs int64  `json:"intervalMs"`
 	Targets    []struct {
+		Data struct {
+			LegendName string `json:"legend_name"`
+		} `json:"data"`
 		Target string `json:"target"`
 		RefID  string `json:"refId"`
 		Hide   bool   `json:"hide"`
@@ -169,6 +172,7 @@ func query(w http.ResponseWriter, r *http.Request) {
 
 	var result []QueryResponse
 	for _, target := range queryRequest.Targets {
+		legend := target.Data.LegendName
 		ds := target.Target[strings.LastIndex(target.Target, ":")+1 : len(target.Target)]
 		rrdDsRep := regexp.MustCompile(`:` + ds + `$`)
 		fileSearchPath := rrdDsRep.ReplaceAllString(target.Target, "")
@@ -212,6 +216,11 @@ func query(w http.ResponseWriter, r *http.Request) {
 			extractedTarget := strings.Replace(filePath, ".rrd", "", -1)
 			extractedTarget = strings.Replace(extractedTarget, config.Server.RrdPath, "", -1)
 			extractedTarget = strings.Replace(extractedTarget, "/", ":", -1) + ":" + ds
+			if len(legend) > 0 {
+
+				extractedTarget = legend
+			}
+
 			result = append(result, QueryResponse{Target: extractedTarget, DataPoints: points})
 		}
 	}
