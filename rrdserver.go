@@ -43,7 +43,14 @@ type QueryRequest struct {
 	IntervalMs int64  `json:"intervalMs"`
 	Targets    []struct {
 		Data struct {
-			LegendName string `json:"legend_name"`
+			Legends []struct {
+				Old string `json:"old"`
+				New string `json :"new"`
+			} `json:"legends"`
+			RegexpReplace struct {
+				Old string `json:"old"`
+				New string `json :"new"`
+			} `json:"regexp_replace"`
 		} `json:"data"`
 		Target string `json:"target"`
 		RefID  string `json:"refId"`
@@ -172,7 +179,10 @@ func query(w http.ResponseWriter, r *http.Request) {
 
 	var result []QueryResponse
 	for _, target := range queryRequest.Targets {
-		legend := target.Data.LegendName
+		legends := target.Data.Legends
+		regexpReplaceString := target.Data.RegexpReplace
+		regexpReplace, _ := regexp.Compile(regexpReplaceString.Old)
+
 		ds := target.Target[strings.LastIndex(target.Target, ":")+1 : len(target.Target)]
 		rrdDsRep := regexp.MustCompile(`:` + ds + `$`)
 		fileSearchPath := rrdDsRep.ReplaceAllString(target.Target, "")
@@ -216,11 +226,15 @@ func query(w http.ResponseWriter, r *http.Request) {
 			extractedTarget := strings.Replace(filePath, ".rrd", "", -1)
 			extractedTarget = strings.Replace(extractedTarget, config.Server.RrdPath, "", -1)
 			extractedTarget = strings.Replace(extractedTarget, "/", ":", -1) + ":" + ds
-			if len(legend) > 0 {
-
-				extractedTarget = legend
+			if len(legends) > 0 {
+				for _, replace := range legends {
+					if extractedTarget == replace.Old {
+						extractedTarget = replace.New
+						break
+					}
+				}
 			}
-
+			extractedTarget = regexpReplace.ReplaceAllString(extractedTarget, regexpReplaceString.New)
 			result = append(result, QueryResponse{Target: extractedTarget, DataPoints: points})
 		}
 	}
